@@ -1,7 +1,7 @@
 <!doctype html><html><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Demo</title>
-
+<title>{{{ PRODUCT_NAME }}}</title>
+{{{ COMPRESSION_SETTINGS }}}{{{ UNITY_WEBGL_LOADER_SCRIPT }}}
 <style>
   html,body{margin:0;height:100%;background:#000}
   #unity-canvas{width:100vw;height:100vh;display:block}
@@ -15,42 +15,35 @@
   <div id="gate"><button id="startBtn">Start</button></div>
 
 <script>
-  // --- Video source (MOV/WebM) ---
+  // --- Video source ---
   const v = document.getElementById('overlay');
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-  // Таны өгсөн URL:
+  // ТАНЫ URL
   const MOV_URL  = "https://archive.org/download/intro1_202508/intro1.mov";
-  const WEBM_URL = null; // Хэрэв webm+alpha байгаа бол "https://..." гэж өг
+  const WEBM_URL = null; // Хэрэв webm+alpha нэмбэл энд тавина
 
   v.src = (!isSafari && WEBM_URL) ? WEBM_URL : MOV_URL;
   v.onerror = () => console.error('Video error', v.error);
 
-  // --- Unity-г ачаалаад instance-аа хадгална ---
-  let unityInstance;
+  // Unity instance
+  let unityInstance = null;
+
+  // START товчны binding-ийг эхлээд хийе
+  document.getElementById('startBtn').addEventListener('click', async () => {
+    document.getElementById('gate').style.display = 'none';
+    try { v.style.display='block'; v.currentTime=0; await v.play(); } catch(e){ console.warn(e); }
+    if (unityInstance) unityInstance.SendMessage('ARManager','StartAR');
+  }, { once:true });
+
+  // Unity-г ачаална (template placeholders-ийг Unity өөрөө бөглөөнө)
   createUnityInstance(document.querySelector("#unity-canvas"), {
-    dataUrl:"", frameworkUrl:"", codeUrl:"",
-    memoryUrl:"", symbolsUrl:"",
-    companyName:"DefaultCompany", productName:"Demo", productVersion:"0.1"
+    dataUrl:"{{{ DATA_URL }}}", frameworkUrl:"{{{ FRAMEWORK_URL }}}", codeUrl:"{{{ CODE_URL }}}",
+    memoryUrl:"{{{ MEMORY_URL }}}", symbolsUrl:"{{{ SYMBOLS_URL }}}",
+    companyName:"{{{ COMPANY_NAME }}}", productName:"{{{ PRODUCT_NAME }}}", productVersion:"{{{ PRODUCT_VERSION }}}"
   }).then(u => { unityInstance = u; }).catch(err => console.error(err));
 
-  // --- НЭГ Л START товч: видео + AR зэрэг асаана ---
-  document.getElementById('startBtn').onclick = async () => {
-    document.getElementById('gate').style.display = 'none';
-    try {
-      v.style.display = 'block';
-      v.currentTime = 0;
-      await v.play(); // iOS autoplay-д хэрэглэгчийн gesture зайлшгүй
-    } catch(e){ console.warn(e); }
-
-    // Unity доторх ARManager → StartAR() дуудах
-    const callStart = () => unityInstance && unityInstance.SendMessage('ARManager','StartAR');
-    if (!callStart()) {
-      const iv = setInterval(() => { if (unityInstance) { callStart(); clearInterval(iv); } }, 200);
-    }
-  };
-
-  // --- C#-аас дуудах гүүр (overlay.jslib) ---
+  // C#-аас дуудах гүүр (overlay.jslib)
   window.Overlay = {
     show: s => v.style.display = s ? 'block' : 'none',
     play: () => { try { v.currentTime = 0; v.play(); } catch(e){} },
