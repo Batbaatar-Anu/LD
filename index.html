@@ -15,29 +15,46 @@
   <div id="gate"><button id="startBtn">Start</button></div>
 
 <script>
+  // --- Video source (MOV/WebM) ---
   const v = document.getElementById('overlay');
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-  const MOV_URL  = "https://archive.org/download/intro1_202508/intro1.mov";   // ← ЭНД өөрийн .mov альфа видео шууд URL
-  const WEBM_URL = null;             // Хэрэв webm+alpha байгаа бол "https://..." гэж өг
+  // Таны өгсөн URL:
+  const MOV_URL  = "https://archive.org/download/intro1_202508/intro1.mov";
+  const WEBM_URL = null; // Хэрэв webm+alpha байгаа бол "https://..." гэж өг
 
   v.src = (!isSafari && WEBM_URL) ? WEBM_URL : MOV_URL;
+  v.onerror = () => console.error('Video error', v.error);
 
+  // --- Unity-г ачаалаад instance-аа хадгална ---
+  let unityInstance;
   createUnityInstance(document.querySelector("#unity-canvas"), {
     dataUrl:"", frameworkUrl:"", codeUrl:"",
     memoryUrl:"", symbolsUrl:"",
     companyName:"DefaultCompany", productName:"Demo", productVersion:"0.1"
-  });
+  }).then(u => { unityInstance = u; }).catch(err => console.error(err));
 
-  document.getElementById('startBtn').onclick = () => {
+  // --- НЭГ Л START товч: видео + AR зэрэг асаана ---
+  document.getElementById('startBtn').onclick = async () => {
     document.getElementById('gate').style.display = 'none';
-    v.currentTime = 0; v.play().catch(console.warn);
+    try {
+      v.style.display = 'block';
+      v.currentTime = 0;
+      await v.play(); // iOS autoplay-д хэрэглэгчийн gesture зайлшгүй
+    } catch(e){ console.warn(e); }
+
+    // Unity доторх ARManager → StartAR() дуудах
+    const callStart = () => unityInstance && unityInstance.SendMessage('ARManager','StartAR');
+    if (!callStart()) {
+      const iv = setInterval(() => { if (unityInstance) { callStart(); clearInterval(iv); } }, 200);
+    }
   };
 
+  // --- C#-аас дуудах гүүр (overlay.jslib) ---
   window.Overlay = {
-    show: (s)=> v.style.display = s ? 'block' : 'none',
-    play: ()=> { v.currentTime = 0; v.play(); },
-    pause: ()=> v.pause()
+    show: s => v.style.display = s ? 'block' : 'none',
+    play: () => { try { v.currentTime = 0; v.play(); } catch(e){} },
+    pause: () => v.pause()
   };
 </script>
 </body></html>
